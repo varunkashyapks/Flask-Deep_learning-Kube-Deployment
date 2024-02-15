@@ -1,0 +1,19 @@
+                      <Autocomplete
+                        id="project-filter"
+                        options={rows.map(row => row.ProjectName)}
+                        value={selectedProjectName2}
+                        onChange={(event, newValue) => setSelectedProjectName2(newValue)}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Project Name"
+                            InputLabelProps={{
+                              style: { color: 'white' }, // Text color
+                            }}
+                            inputProps={{
+                              ...params.inputProps,
+                              style: { color: 'white' }, // Text color
+                            }}
+                          />
+                        )}
+                      />

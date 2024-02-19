@@ -1,8 +1,721 @@
+import Grid from "@mui/material/Grid";
+import Card from "@mui/material/Card";
+import { debounce } from 'lodash';
+//  React components
+import MDBox from "components/MDBox";
+import MDTypography from "components/MDTypography";
+
+//  React example components
+import DashboardLayout from "examples/LayoutContainers/DashboardLayout";
+import DashboardNavbar from "examples/Navbars/DashboardNavbar";
+import PropTypes from 'prop-types';
+import Box from '@mui/material/Box';
+import Collapse from '@mui/material/Collapse';
+import IconButton from '@mui/material/IconButton';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import Typography from '@mui/material/Typography';
+import Paper from '@mui/material/Paper';
+// import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+// import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+
+import React, { useState, useEffect } from 'react';
+import { Bar } from 'react-chartjs-2';
+import Plot from 'react-plotly.js';
+import { MenuItem, Select, FormControl, InputLabel, Autocomplete, TextField, Menu } from '@mui/material';
+import { Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { KeyboardArrowDown as KeyboardArrowDownIcon, KeyboardArrowUp as KeyboardArrowUpIcon, FilterList as FilterListIcon, ArrowDownward as ArrowDownwardIcon, ArrowUpward as ArrowUpwardIcon } from '@mui/icons-material';
+import { DataGrid, GridToolbar } from '@mui/x-data-grid';
+import { Button, Tooltip } from '@mui/material';
+
+const VISIBLE_FIELDS = ['endDate', 'startDate'];
+
+
+const Utilization = () => {
+  const [rows, setRows] = useState([]);
+  const [selectedProjectName, setSelectedProjectName] = useState('');
+  const [selectedName, setSelectedName] = useState('');
+  const [barGraph, setBarGraph] = useState([]);
+  const [selectedMonthYear, setSelectedMonthYear] = useState('');
+  const [expandedRowIds, setExpandedRowIds] = useState([]);
+
+  const handleRowExpandToggle = (rowId) => {
+    setExpandedRowIds((prevExpandedRowIds) =>
+      prevExpandedRowIds.includes(rowId)
+        ? prevExpandedRowIds.filter((id) => id !== rowId)
+        : [...prevExpandedRowIds, rowId]
+    );
+  };
+
+  useEffect(() => {
+    // Fetch data from API
+    fetch('http://127.0.0.1:5000/api/finalutil')
+      .then(response => response.json())
+      .then(data => {
+        // Process the fetched data and update the state
+        setRows(data);
+      })
+      .catch(error => {
+        console.error('Error fetching data:', error);
+      });
+  }, []); // data from api
+
+  useEffect(() => {
+    if (!selectedMonthYear || !rows) return;
+
+    // Filter data by selected MonthYear
+    const filteredData = rows.filter(row => row.MonthYear === selectedMonthYear);
+
+    // Initialize utilization count for each category
+    let underCount = 0;
+    let properCount = 0;
+    let overCount = 0;
+
+    // Iterate through filtered data to count the utilization percentages
+    filteredData.forEach(row => {
+      const utilization = parseFloat(row.OverAllUtilization);
+      if (utilization >= 0 && utilization <= 30) {
+        underCount++;
+      } else if (utilization > 30 && utilization <= 75) {
+        properCount++;
+      } else if (utilization > 75) {
+        overCount++;
+      }
+    });
+
+    // Update the state with the counts
+    setBarGraph([
+      {
+        x: ['Under', 'Proper', 'Overutil'],
+        y: [underCount, properCount, overCount],
+        type: 'bar',
+      },
+    ]);
+  }, [selectedMonthYear, rows]);
+
+  // const monthYearOptions = rows ? rows.map(row => row.MonthYear) : [];
+  const monthYearOptions = rows ? [...new Set(rows.map(row => row.MonthYear))] : [];
+
+  const filteredRows = rows ? rows.filter(row => row.MonthYear === selectedMonthYear) : [];
+
+  const CustomRow = (props) => {
+    const { row } = props;
+
+    return (
+      <React.Fragment>
+        <TableRow sx={{ '& > *': { borderBottom: 'unset' } }}>
+          <TableCell style={{ width: '0%', paddingRight: 0, paddingLeft: 0 }}>
+            <IconButton
+              aria-label="expand row"
+              size="small"
+              onClick={() => handleRowExpandToggle(row.id)}
+            >
+              {expandedRowIds.includes(row.id) ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+            </IconButton>
+          </TableCell>
+          <TableCell align="left" component="th" scope="row" style={{ width: 150, paddingRight: 0, paddingLeft: 0 }}>
+            {row.Name}
+          </TableCell>
+          <TableCell align="left" style={{ width: 150, paddingRight: 0, paddingLeft: 0 }}>{row.Department}</TableCell>
+          <TableCell align="left" style={{ width: 150, paddingRight: 0, paddingLeft: 0 }}>{row.EndDate}</TableCell>
+          <TableCell align="left" style={{ width: 150, paddingRight: 0, paddingLeft: 0 }}>{row.MonthYear}</TableCell>
+          <TableCell align="left" style={{ width: 150, paddingRight: 0, paddingLeft: 0 }}>{row.TSEndDate}</TableCell>
+          <TableCell align="left" style={{ width: 150, paddingRight: 0, paddingLeft: 0 }}>{row.TSStartDate}</TableCell>
+          <TableCell align="left" style={{ width: 150, paddingRight: 0, paddingLeft: 0 }}>{row.Manager}</TableCell>
+          <TableCell align="left" style={{ width: 150, paddingRight: 0, paddingLeft: 0 }}>
+            <Tooltip
+              title={
+                <React.Fragment>
+                  <Typography color="inherit">Tooltip with HTML</Typography>
+                  {parseFloat(row.OverAllUtilization) > 70 ? (
+                    <span>Correct and neat</span>
+                  ) : (
+                    <span>Order not there</span>
+                  )}
+                </React.Fragment>
+              }
+              arrow
+            >
+              <Button style={{
+                backgroundColor: 'transparent', // Set background color to transparent
+                border: '1px solid black',
+                width: '80px', // Adjust width as needed
+                height: '30px', // Adjust height as needed
+                // color: 'black', // Set text color to black
+                padding: '3px 5px', // Add padding to create space for the border
+                position: 'relative', // Position relative for absolute positioning of the fill
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: `${parseFloat(row.OverAllUtilization)}%`, // Set width based on the percentage
+                  height: '100%',
+                  backgroundColor: parseFloat(row.OverAllUtilization) <= 70 ? 'salmon' : 'lightgreen', // Set color based on percentage
+                  borderRadius: 'inherit', // Inherit the border-radius from the button
+                }} />
+                <span style={{ position: 'relative', zIndex: 1 }}>{row.OverAllUtilization}</span>
+              </Button>
+            </Tooltip>
+          </TableCell>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        </TableRow>
+        <TableRow>
+          <TableCell style={{ paddingBottom: 0, paddingTop: 0, paddingRight: 0, paddingLeft: 0 }}>
+            <Collapse in={expandedRowIds.includes(row.id)} timeout="auto" unmountOnExit>
+              <Box sx={{ margin: '0px', padding: '0px', fontSize: '0.875rem', paddingRight: 0, paddingLeft: 0 }}>
+                <Typography variant="h6" gutterBottom component="div" paddingRight="10px" paddingLeft="100px">
+                  History
+                </Typography>
+                <Table size="large" aria-label="history">
+                  <TableBody>
+                    <TableRow>
+                      <TableCell style={{ minWidth: '100px', width: '100px' }}>Date</TableCell>
+                      <TableCell style={{ minWidth: '100px', width: '100px' }}>Utilization</TableCell>
+                      <TableCell style={{ minWidth: '100px', width: '100px' }}>Project Name</TableCell>
+                    </TableRow>
+                    {row.history.map((historyItem, index) => (
+                      <TableRow key={index}>
+                        <TableCell style={{ minWidth: '100px', width: '100px', paddingRight: '0', paddingLeft: '10px' }}>{historyItem.date}</TableCell>
+                        <TableCell style={{ minWidth: '100px', width: '100px', paddingRight: '0', paddingLeft: '30px' }}>{historyItem.Utilization}</TableCell>
+                        <TableCell style={{ minWidth: '100px', width: '100px', paddingRight: '0', paddingLeft: '0' }}>{historyItem.projectName}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+
+              </Box>
+            </Collapse>
+          </TableCell>
+
+
+
+        </TableRow>
+      </React.Fragment>
+    );
+  };
+
+  const columns = [
+    { field: 'Name', headerName: 'Name', width: 150 },
+    { field: 'Department', headerName: 'Department', width: 150 },
+    { field: 'EndDate', headerName: 'End Date', width: 150 },
+    { field: 'MonthYear', headerName: 'Month Year', width: 100 },
+    { field: 'TSEndDate', headerName: 'TS End Date', width: 150 },
+    { field: 'TSStartDate', headerName: 'TS Start Date', width: 150 },
+    { field: 'Manager', headerName: 'Manager', width: 100 },
+    { field: 'OverAllUtilization', headerName: 'Overall Utilization', width: 150 },
+  ];
+
+  return (
+    <DashboardLayout>
+      <DashboardNavbar />
+      <MDBox pt={6} pb={3}>
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <Card>
+              <MDBox mx={2} mt={-3} py={3} px={2} variant="gradient" bgColor="info" borderRadius="lg" coloredShadow="info">
+                <MDTypography variant="h6" color="white">
+                  Utilization
+                </MDTypography>
+              </MDBox>
+              <MDBox pt={2} px={-1}>
+                <div style={{ height: 500, width: '100%' }}>
+                  <div style={{ height: '80%', width: '100%' }}>
+                    <DataGrid
+                      rows={rows}
+                      columns={columns}
+                      pageSize={5}
+                      components={{
+                        Row: CustomRow,
+                        Toolbar: GridToolbar,
+                      }}
+                      paginationModel={{ pageSize: 25, page: 0 }}
+                      onPaginationModelChange={() => {}}
+                      getRowId={(row) => row.id}
+                      isRowExpandable={(params) => params.row.history.length > 0}
+                      expandedRowIds={expandedRowIds}
+                      onRowExpandToggle={(rowId) => handleRowExpandToggle(rowId)}
+                      componentsProps={{
+                        expandIcon: {
+                          collapsed: <KeyboardArrowDownIcon />,
+                          expanded: <KeyboardArrowUpIcon />,
+                        },
+                      }}
+                    />
+                  </div>
+                </div>
+              </MDBox>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Card>
+              <MDBox mx={2} mt={-3} py={2} px={2} variant="gradient" bgColor="info" borderRadius="lg" coloredShadow="info">
+                <MDTypography variant="subtitle1" color="white" mb={1}>
+                  Allocation Comparison by Month
+                </MDTypography>
+                <Grid container spacing={1} sx={{ backgroundColor: 'white', borderRadius: '4px', padding: '8px' }}>
+                  <Grid item xs={6} sm={3} md={6} lg={3}>
+                    <FormControl fullWidth size="small">
+                      {/* <InputLabel id="month-year-filter-label" style={{ fontSize: '0.75rem', color: 'white' }}>Month Year</InputLabel> */}
+                      <Autocomplete
+                        id="month-year-filter"
+                        options={monthYearOptions}
+                        value={selectedMonthYear}
+                        onChange={(event, newValue) => {
+                          setSelectedMonthYear(newValue);
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Month Year"
+                            InputLabelProps={{
+                              style: { color: 'white' },
+                            }}
+                            inputProps={{
+                              ...params.inputProps,
+                              style: { color: 'white' },
+                            }}
+                          />
+                        )}
+                      />
+                    </FormControl>
+                  </Grid>
+                </Grid>
+              </MDBox>
+              <MDBox pt={1} pb={1}>
+              <Plot
+  data={barGraph.map(bar => ({
+    ...bar,
+    marker: {
+      color: ['red', 'blue', 'green'], // Specify the colors for each bar here
+    },
+  }))}
+  layout={{
+    barmode: 'group',
+    title: `Allocation and Utilization Comparison by Month for ${selectedProjectName}`,
+    responsive: true,
+  }}
+  style={{ width: '100%' }}
+  config={{ responsive: true }}
+/>
+
+              </MDBox>
+            </Card>
+          </Grid>
+        </Grid>
+      </MDBox>
+    </DashboardLayout>
+  );
+};
+
+export default Utilization;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// @mui material components
+import Grid from "@mui/material/Grid";
+import Card from "@mui/material/Card";
+import { debounce } from 'lodash';
+//  React components
+import MDBox from "components/MDBox";
+import MDTypography from "components/MDTypography";
+
+//  React example components
+import DashboardLayout from "examples/LayoutContainers/DashboardLayout";
+import DashboardNavbar from "examples/Navbars/DashboardNavbar";
+import PropTypes from 'prop-types';
+import Box from '@mui/material/Box';
+import Collapse from '@mui/material/Collapse';
+import IconButton from '@mui/material/IconButton';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import Typography from '@mui/material/Typography';
+import Paper from '@mui/material/Paper';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+
+import React, { useState, useEffect } from 'react';
+import { Bar } from 'react-chartjs-2';
+import Plot from 'react-plotly.js';
+import { DataGrid, GridToolbar } from '@mui/x-data-grid';
+import { MenuItem, Select, FormControl, InputLabel, Autocomplete, TextField } from '@mui/material';
+import { Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+
+const VISIBLE_FIELDS = ['endDate', 'startDate'];
+
+
+
+function Utilization() {
+  const [open, setOpen] = useState(false);
+  const [columns, setColumns] = useState([]);
+  const [rows, setRows] = useState([]);
+  const [selectedMD, setSelectedMD] = useState('');
+  const [selectedMonthYear, setselectedMonthYear] = useState('');
+  const [selectedMonth2, setSelectedMonth2] = useState('');
+  const [chartDataByAuthor, setChartDataByAuthor] = useState([]);
+  const [chartDataByMonth, setChartDataByMonth] = useState({});
+  const [selectedProjectName, setSelectedProjectName] = useState('');
+  const [selectedProjectName2, setSelectedProjectName2] = useState('');
+  const [selectedName, setSelectedName] = useState('');
+  const [barGraph, setBarGraph] = useState([]);
+  const [barGraph2, setBarGraph2] = useState([]); // Separate state variable for graph 2
+  const filteredColumns = columns.filter(column => column.field !== 'id');
+  const barColors = ['rgb(31, 119, 180)', 'rgb(255, 127, 14)', 'rgb(44, 160, 44)', 'rgb(214, 39, 40)'];
+  const [availableMonthYears, setAvailableMonthYears] = useState([]);
+  const [availableNames, setAvailableNames] = useState([]);
+  const [searchValue, setSearchValue] = useState('');
+
+
+  // Define a debounced function
+  const handleSearch = debounce((query) => {
+    // Perform search logic here
+    console.log('Searching for:', query);
+    // You can add your search logic here, such as filtering data based on the query and updating state
+    // For example:
+    // const filteredData = rows.filter(row => row.ProjectName.toLowerCase().includes(query.toLowerCase()));
+    // setFilteredData(filteredData);
+  }, 3000); // Adjust the debounce delay (in milliseconds) as needed
+
+  useEffect(() => {
+    const fetchAuthorsData = async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:5000/api/authors');
+        const data = await response.json();
+
+
+        // Modify the data format to ensure compatibility with the graph component
+        const formattedData = data.map(row => ({
+          ...row,
+          StartDate: parseDate(row.StartDate),
+          EndDate: parseDate(row.EndDate),
+          MonthYear: row.MonthYear // Assuming MonthYear is in the format "MMM-YYYY"
+        }));
+
+        setRows(formattedData);
+
+        // Extract columns from the first row
+        if (formattedData.length > 0) {
+          const firstRow = formattedData[0];
+          const columns = Object.keys(firstRow).map(key => {
+            let width = 100; // Default width
+            // Adjust width based on column key or other conditions if needed
+            if (key === 'ProjectName' || key === 'Department') {
+              width = 130; // Custom width for the 'Author' and 'Department' columns
+            } else if (key === 'StartDate' || key === 'EndDate') {
+              width = 160; // Custom width for date columns
+            }
+            return {
+              field: key,
+              headerName: key.charAt(0).toUpperCase() + key.slice(1),
+              width: width,
+              renderCell: (params) => {
+                if (params.field === 'Utilization') {
+                  const utilization = parseFloat(params.value); // Parse utilization as a float
+                  const barWidth = `${utilization}%`;
+                  let barColor = 'lightblue'; // Default light blue color
+
+                  // Set bar color based on utilization percentage ranges
+                  if (utilization >= 75) {
+                    barColor = 'lightgreen'; // Light green for utilization above or equal to 75%
+                  } else if (utilization >= 50 && utilization <= 74) {
+                    barColor = 'lightyellow'; // Light yellow for utilization between 50 and 74%
+                  } else if (utilization >= 15 && utilization <= 49) {
+                    barColor = 'salmon'; // Light orange for utilization between 15 and 49%
+                  } else {
+                    barColor = 'red'; // Light coral for utilization between 0 and 14%
+                  }
+
+                  return (
+                    <div style={{
+                      position: 'relative',
+                      width: '100%',
+                      height: '100%',
+                      border: '1px solid #ccc', // Light black border
+                      borderRadius: '0px', // Rounded corners
+                      borderWidth: '1px', // Decrease border size
+                      overflow: 'hidden', // Hide overflow for rounded corners
+                      backgroundColor: 'white', // Set background color to white
+                    }}>
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: barWidth,
+                          height: '100%',
+                          // border: '1px solid #ccc', // Light black border
+                          backgroundColor: barColor,
+
+                          // borderRadius: '4px 0 0 4px', // Rounded corners for the left side
+                        }}
+                      />
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: '50%',
+                          top: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          color: 'black', // Black text color for better visibility
+                          fontWeight: 'bold', // Bold font weight for emphasis
+
+                        }}
+                      >
+                        {params.value}
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Convert date object to string before rendering
+                if (params.field === 'StartDate' || params.field === 'EndDate') {
+                  return <div>{params.value.toLocaleDateString()}</div>;
+                }
+
+                // Render other cells normally
+                return <div>{params.value}</div>;
+              },
+            };
+          });
+          setColumns(columns);
+        }
+      } catch (error) {
+        console.error('Error fetching authors data:', error);
+      }
+    };
+
+    fetchAuthorsData();
+  }, []);
+
+  //
+  useEffect(() => {
+    if (!selectedProjectName) return;
+
+    // Filter data by selected project name
+    const projectData = rows.filter(row => row.ProjectName === selectedProjectName);
+
+    // Extract unique MonthYear values from the filtered data
+    const availableNames = [...new Set(projectData.map(row => row.Name))];
+
+    // Set the available MonthYear values for the dropdown
+    setAvailableNames(availableNames);
+  }, [selectedProjectName, rows]);
+
+  useEffect(() => {
+    if (!selectedProjectName || !selectedName) return;
+
+    // Filter data by selected ProjectName and Name
+    const filteredData = rows.filter(
+      row =>
+        row.ProjectName === selectedProjectName &&
+        row.Name === selectedName
+    );
+
+    // Extract MonthYear and corresponding Allocation and Utilization data
+    const allocationData = filteredData.map(row => ({
+      monthYear: row.MonthYear,
+      allocation: row.Allocation,
+      utilization: row.Utilization
+    }));
+
+    // Sort data by MonthYear
+    allocationData.sort((a, b) => a.monthYear.localeCompare(b.monthYear));
+
+    // Extract MonthYear, Allocation, and Utilization for plotting
+    const months = allocationData.map(entry => entry.monthYear);
+    const allocations = allocationData.map(entry => entry.allocation);
+    const utilizations = allocationData.map(entry => entry.utilization);
+
+    // Create the bar graph data
+    const graphData = [
+      {
+        x: months,
+        y: allocations,
+        type: 'bar',
+        name: 'Allocation'
+      },
+      {
+        x: months,
+        y: utilizations,
+        type: 'bar',
+        name: 'Utilization'
+      }
+    ];
+
+    setBarGraph(graphData);
+  }, [selectedProjectName, selectedName, rows]);
+
+  //
+  //
+  //
+  //
+  //
+  const [paginationModel, setPaginationModel] = React.useState({
+    pageSize: 25,
+    page: 0,
+  });
+  useEffect(() => {
+    if (!selectedProjectName2) return;
+
+    // Filter data by selected project name
+    const projectData = rows.filter(row => row.ProjectName === selectedProjectName2);
+
+    // Extract unique MonthYear values from the filtered data
+    const availableMonthYears = [...new Set(projectData.map(row => row.MonthYear))];
+
+    // Set the available MonthYear values for the dropdown
+    setAvailableMonthYears(availableMonthYears);
+  }, [selectedProjectName2, rows]);
+
+  useEffect(() => {
+    if (!selectedProjectName2 || !selectedMonth2) return;
+
+    // Filter data by selected project name and month year
+    const filteredData = rows.filter(row => row.ProjectName === selectedProjectName2 && row.MonthYear === selectedMonth2);
+
+    // Calculate total utilization for each name
+    const nameUtilizationMap = {};
+    filteredData.forEach(row => {
+      const name = row.Name;
+      const utilization = parseFloat(row.Utilization);
+      if (nameUtilizationMap[name]) {
+        nameUtilizationMap[name] += utilization;
+      } else {
+        nameUtilizationMap[name] = utilization;
+      }
+    });
+
+    // Prepare data for the bar graph
+    const chartData = {
+      x: Object.keys(nameUtilizationMap),
+      y: Object.values(nameUtilizationMap),
+      type: 'bar',
+      marker: {
+        color: 'rgb(75,192,192)',
+      },
+    };
+
+    setBarGraph2([chartData]);
+  }, [selectedProjectName2, selectedMonth2, rows]);
+
+
+  const parseDate = dateString => {
+    const [day, month, year] = dateString.split('-');
+    return new Date(year, month - 1, day);
+  };
+
+  return (
+    <DashboardLayout>
+      <DashboardNavbar />
+      <MDBox pt={6} pb={3}>
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <Card>
+              <MDBox mx={2} mt={-3} py={3} px={2} variant="gradient" bgColor="info" borderRadius="lg" coloredShadow="info">
+                <MDTypography variant="h6" color="white">
+                  Authors Table
+                </MDTypography>
+              </MDBox>
+              <MDBox pt={3}>
+                <div style={{ height: 500, width: '100%' }}>
+                  <DataGrid
+                    rows={rows.filter(row => row.Name.toLowerCase().includes(searchValue.toLowerCase()))}
+                    columns={columns.map(column => ({
+                      ...column,
+                      hide: !VISIBLE_FIELDS.includes(column.field),
+                    }))}
+                    pageSize={5}
+                    paginationModel={paginationModel}
+                    onPaginationModelChange={setPaginationModel}
+            
+                    pagination
+                    components={{ Toolbar: GridToolbar }}
+                  />
+                </div>
+              </MDBox>
+            </Card>
+
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Card>
+              <MDBox mx={2} mt={-3} py={2} px={2} variant="gradient" bgColor="info" borderRadius="lg" coloredShadow="info">
+                <MDTypography variant="subtitle1" color="white" mb={1}>
+                  Allocation and Utilization Comparison by Month
+                </MDTypography>
+                <Grid container spacing={1} sx={{ backgroundColor: 'white', borderRadius: '4px', padding: '8px' }}>
+                  <Grid item xs={6} sm={3} md={6} lg={3}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel id="project-name-filter-label" style={{ fontSize: '0.75rem', color: 'white' }}>ProjectName</InputLabel>
                       <Autocomplete
                         id="project-filter"
                         options={rows.map(row => row.ProjectName)}
                         value={selectedProjectName2}
-                        onChange={(event, newValue) => setSelectedProjectName2(newValue)}
+                        onChange={(event, newValue) => {
+                          setSelectedProjectName(newValue);
+                          handleSearch(newValue); // Trigger the debounced search function
+                        }}
+
+
                         renderInput={(params) => (
                           <TextField
                             {...params}
@@ -17,3 +730,140 @@
                           />
                         )}
                       />
+
+                      {/* <Select
+                        labelId="project-name-filter-label"
+                        id="project-name-filter"
+                        value={selectedProjectName}
+                        onChange={event => setSelectedProjectName(event.target.value)}
+                        sx={{ color: 'white' }}
+                        style={{ minWidth: '8ch' }}
+                        MenuProps={{
+                          PaperProps: {
+                            style: {
+                              maxHeight: 200, // Adjust the maximum height of the dropdown menu
+                              width: 250, // Adjust the width of the dropdown menu
+                            },
+                          },
+                        }}
+                      >
+                        <MenuItem value=""></MenuItem>
+                        {[...new Set(rows.map(row => row.ProjectName))].map(projectName => (
+                          <MenuItem key={projectName} value={projectName}>{projectName}</MenuItem>
+                        ))}
+                      </Select> */}
+                    </FormControl>
+
+                  </Grid>
+                  <Grid item xs={6} sm={3} md={6} lg={3}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel id="name-filter-label" style={{ fontSize: '0.75rem', color: 'white' }}>Name</InputLabel>
+                      <Select
+                        labelId="name-filter-label"
+                        id="name-filter"
+                        value={selectedName}
+                        onChange={event => setSelectedName(event.target.value)}
+                        sx={{ color: 'white' }}
+                        style={{ minWidth: '8ch' }}
+                      >
+                        <MenuItem value=""></MenuItem>
+                        {availableNames.map(name => (
+                          <MenuItem key={name} value={name}>{name}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                </Grid>
+              </MDBox>
+              <MDBox pt={1} pb={1}>
+                <Plot
+                  data={barGraph}
+                  layout={{ barmode: 'group', title: `Allocation and Utilization Comparison by Month for ${selectedProjectName}`, responsive: true }}
+                  style={{ width: '100%' }}
+                  config={{ responsive: true }}
+                />
+              </MDBox>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Card>
+              <MDBox mx={2} mt={-3} py={3} px={2} variant="gradient" bgColor="info" borderRadius="lg" coloredShadow="info">
+                <MDTypography variant="h6" color="white">Utilization Comparison by Name</MDTypography>
+                <Grid container spacing={1} sx={{ backgroundColor: 'white', borderRadius: '4px', padding: '8px' }}>
+                  <Grid item xs={6} sm={3} md={6} lg={3}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel id="project-filter-label" style={{ fontSize: '0.75rem', color: 'white' }}></InputLabel>
+                      <Autocomplete
+                        id="project-filter"
+                        options={rows.map(row => row.ProjectName)}
+                        value={selectedProjectName2}
+                        onChange={(event, newValue) => {
+                          setSelectedProjectName2(newValue);
+                          // handleSearch(newValue); // Trigger the debounced search function
+                        }}
+
+
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Project Name"
+                            InputLabelProps={{
+                              style: { color: 'white' }, // Text color
+                            }}
+                            inputProps={{
+                              ...params.inputProps,
+                              style: { color: 'white' }, // Text color
+                            }}
+                          />
+                        )}
+                      />
+
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={6} sm={3} md={6} lg={3}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel id="month-filter-label-2" style={{ fontSize: '0.75rem', color: 'white' }}>MonthYear</InputLabel>
+                      <Autocomplete
+                        id="month-filter-2"
+                        value={selectedMonth2}
+                        onChange={(event, newValue) => setSelectedMonth2(newValue)}
+                        options={availableMonthYears}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Month Year"
+                            InputLabelProps={{
+                              style: { color: 'white' }, // Text color
+                            }}
+                            inputProps={{
+                              ...params.inputProps,
+                              style: { color: 'white' }, // Text color
+                            }}
+                          />
+                        )}
+                      />
+                    </FormControl>
+                  </Grid>
+                </Grid>
+              </MDBox>
+              <MDBox pt={3}>
+                <Plot
+                  data={barGraph2}
+                  layout={{ title: `Utilization Comparison by Name for ${selectedProjectName2} (${selectedMonth2})`, barmode: 'group', responsive: true }}
+                  style={{ width: '100%' }}
+                  config={{ responsive: true }}
+                />
+              </MDBox>
+            </Card>
+          </Grid>
+
+        </Grid>
+      </MDBox>
+    </DashboardLayout>
+  );
+}
+
+
+
+
+export default Utilization;
